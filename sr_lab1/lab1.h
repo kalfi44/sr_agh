@@ -10,8 +10,7 @@ typedef struct{
 	msg_type type;
 	int sender_port;
 	int destination_port;
-	char *sender_ip;
-	char *msg; 
+	char msg[256]; 
 } Token;
 
 #endif

@@ -14,7 +14,7 @@
 #define MAX 80 
 #define PORT 8081 
 #define SA struct sockaddr 
-
+/*
 char* name;
 int neig_port;
 char* neig_ip;
@@ -120,7 +120,7 @@ void send_init(){
 	init.sender_port = my_port;
 	send_msg(init);
 }
-
+*/
 /*
 char* get_ip(){
 

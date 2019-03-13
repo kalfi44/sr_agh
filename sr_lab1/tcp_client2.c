@@ -11,8 +11,6 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include "lab1.h"
-#define MAX 80 
-#define PORT 8081 
 #define SA struct sockaddr 
 
 char* name;
@@ -23,6 +21,7 @@ int hasToken;;
 int out_socket;
 int in_socket;
 int accepted_socket;
+int logger_socket;
 struct sockaddr_in peer;
 int len;
 
@@ -77,7 +76,7 @@ void request_session(){
 
 	struct sockaddr_in sending_addr;
 	sending_addr.sin_family = AF_INET;
-	sending_addr.sin_addr.s_addr = inet_addr(neig_ip);
+	sending_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	sending_addr.sin_port = htons(neig_port);
 
 	//printf("%d %s \n", neig_port, neig_ip);
@@ -88,14 +87,13 @@ void request_session(){
 		exit(0);
 	}
 	else{
-		printf("Connection succesfull");
+		//printf("Connection succesfull\n");
 	}
 	
 
 }
 
 void accept_session(){
-	printf("dupa1\n");
 	// Accept the data packet from client and verification 
 	accepted_socket = accept(in_socket, (SA*)&peer, &len); 
 	if (accepted_socket < 0) { 
@@ -104,27 +102,41 @@ void accept_session(){
 	} 
 	else
 	{
-		printf("server acccepted the client...\n");
+		//printf("server acccepted the client...\n");
 	}
 }
 
 void send_msg(Token msg){
 	//in case it was closed earlier
+	set_out_socket();
 
-	msg.sender_port = my_port;
-	msg.destination_port = neig_port;
+	if(msg.type == TOKEN){
+		msg.sender_port = my_port;
+		msg.destination_port = neig_port;
+		bzero(msg.msg, sizeof(msg.msg));
+		strcpy(msg.msg, name);
+		
+		//logging part
+		struct sockaddr_in log_addr;
+		log_addr.sin_family = AF_INET;
+		log_addr.sin_addr.s_addr = inet_addr("224.1.2.3");
+		log_addr.sin_port = htons(10000);
 
-	if(msg.type == TOKEN){;
-	msg.msg = "Message from";
-	strcat(msg.msg, name);
-	strcat(msg.msg, "\n");
+		if(sendto(logger_socket, msg.msg, sizeof(msg.msg), 0, (struct sockaddr *) &log_addr, sizeof(log_addr)) < 0){
+			printf("erro sending log\n");
+		}
+		else{
+			//printf("log sent\n");
+		}
 	}
-	
+	//printf("I will try to open new con\n");
 	request_session();
+	//printf("probably error with out_socket\n");
 	write(out_socket, &msg, sizeof(msg));
 	close(out_socket);
 }
 
+/*
 char* get_ip(){
 
 	struct ifreq ifr;
@@ -139,10 +151,7 @@ char* get_ip(){
 	char *ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
 	return ip;
 }
-
-//void send_initial_msg(){
-//	
-//}
+*/
 
 int main(int argc, char** argv) 
 { 
@@ -161,45 +170,67 @@ int main(int argc, char** argv)
 		printf("hasToken must be 0 or 1\n");
 	}
 
+	//init looger socket
+	logger_socket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (logger_socket == -1){
+		printf("Coudln't create logger socket\n");
+		exit(0);
+	}
+	
+
 	//let's assume that if u have token u are first client
 	if(hasToken==1){
 		
 		Token msg;
 		
 		initialize();
-		//set_out_socket();
-		printf("po init\n");
-		accept_session(); //i will onect with me here
+		set_out_socket();
 		
-		//wait for someone to speak
-		read(accepted_socket, &msg, sizeof(msg));
-		//check if it's INIT - should be!
-		//if(msg.type != INIT){
-		//	printf("Two tokens in ring! Aborting token\n");
-		//	exit(0); //to do - find solution other than drop client
-		//}
-		//printf("Got init from %d-listener", msg.sender_port);
+		accept_session();
+		
+		read(accepted_socket, &msg, sizeof(msg)); //i will wait for init
+		
+		printf("Got init from %d-listener\n", msg.sender_port);
 		neig_port = msg.sender_port;
-		neig_ip = msg.sender_ip;
 		msg.type = TOKEN;
+		bzero(msg.msg, sizeof(msg.msg));
+		strcpy(msg.msg, name);
 		send_msg(msg);
-	
+		
 	}
 	else{
 		initialize();
 		set_out_socket();
-		request_session();
-
 		Token init_msg;
-		init_msg.type = INIT;
-		init_msg.sender_ip = get_ip();
 		init_msg.sender_port = my_port;
+		init_msg.destination_port = neig_port;
+		init_msg.type = INIT;
 		send_msg(init_msg);
 
 	}
-
+	printf("into loop\n");
 	while(1){
-
+		Token tk;
+		accept_session();
+		read(accepted_socket, &tk, sizeof(tk));
+		if(tk.type==INIT){
+			printf("Got init from %d %d %d\n", tk.sender_port, tk.destination_port, neig_port);
+			if(tk.destination_port == neig_port){
+				neig_port = tk.sender_port;
+				printf("switched ports my:%d- n:%d\n", my_port, neig_port);
+				//send_msg(tk);// next hop will discard init but this will establish connection
+			}
+			else if(my_port != tk.sender_port){
+				send_msg(tk);
+			}
+		}
+		else if(tk.type==TOKEN){
+			printf("Got msg: %s from %d\n", tk.msg, tk.sender_port);
+			bzero(tk.msg, sizeof(tk.msg));
+			strcpy(tk.msg, name);
+			sleep(1);
+			send_msg(tk);
+		}
 
 	}
 
