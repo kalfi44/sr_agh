@@ -83,6 +83,7 @@ void request_session(){
 	//printf("%d %s \n", neig_port, neig_ip);
 
 	if(connect(out_socket, (SA*)&sending_addr, sizeof(sending_addr)) == -1){
+		printf("%d", neig_port);
 		perror("Connection failed:");
 		exit(-1);
 	}
@@ -113,6 +114,7 @@ void send_msg(Token msg){
 	//in case it was closed earlier or changed
 	set_out_socket();
 
+	//token type is set up here, init and dead will be just passed
 	if(msg.type == TOKEN){
 
 		//we assume that message is just name passed to neighbour
@@ -141,9 +143,21 @@ void send_msg(Token msg){
 			//printf("log sent\n");
 		}
 	}
+
 	request_session();
 	write(out_socket, &msg, sizeof(msg));
 	close(out_socket);
+}
+
+void exit_handler(int sig){
+	Token closing_msg;
+	closing_msg.type = CLOSE;
+	closing_msg.sender_port = my_port;
+	closing_msg.destination_port = neig_port;
+	
+	send_msg(closing_msg);
+	printf("Sent closing message. Exiting.\n");
+	exit(0);
 }
 
 int main(int argc, char** argv) 
@@ -171,6 +185,8 @@ int main(int argc, char** argv)
 		exit(-1);
 	}
 	
+	//exit control
+	signal(SIGINT,exit_handler);
 
 	//let's assume that if u have token u are first client and if not then u are not
 	if(hasToken==1){
@@ -227,7 +243,14 @@ int main(int argc, char** argv)
 			printf("Got init from Sender:%d Wants to be connected to:%d I am connecte to:%d\n", tk.sender_port, tk.destination_port, neig_port);
 			//if i am connected to port some one wants to connect
 			//i will have to connect to new guy
-			if(tk.destination_port == neig_port){
+			if(my_port==tk.sender_port){
+				printf("Wait, it's mine!. Throw it away\n");
+				//renew sending tokens
+				tk.type=TOKEN;
+				sleep(1);
+				send_msg(tk);
+			}
+			else if(tk.destination_port == neig_port){
 				//i change my sending port to new guy's port
 				printf("switched sending ports old:%d- new:%d\n", neig_port, tk.sender_port);
 				neig_port = tk.sender_port;
@@ -235,8 +258,35 @@ int main(int argc, char** argv)
 			else if(my_port != tk.sender_port){
 				send_msg(tk);
 			}
+			
 		}
-		else if(tk.type==TOKEN){
+		else if(tk.type==CLOSE){
+			//if i were closed client's listener 
+			//i will now listen from someone else
+			//i pass my port as destination 
+			printf("got close\n");
+			if(my_port==tk.destination_port){
+				tk.destination_port = my_port;
+				printf("Client: %d closed, sending my info for someone to connect with me.\n", tk.sender_port);
+				//and pass close info further
+				send_msg(tk);
+			}
+			else if(neig_port==tk.sender_port){
+				printf("My neighbour: %d closed. I will be now connected to: %d\n", tk.sender_port, tk.destination_port);
+				neig_port = tk.destination_port;
+				//no need to pass close further, discard it.
+				//but i have to init new connection
+				tk.type = INIT;
+				tk.sender_port = my_port;
+				tk.destination_port = neig_port;
+				send_msg(tk);	
+			}
+			else{
+				// none of this applies just pass it 
+				printf("passing close\n");
+				send_msg(tk);
+			}
+		}else if(tk.type==TOKEN){
 			//if got token just rest for a second & pass it further 
 			printf("Got msg: %s from %d\n", tk.msg, tk.sender_port);
 			sleep(1);

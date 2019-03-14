@@ -13,9 +13,11 @@
 #include <sys/socket.h> 
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <signal.h>
 
 typedef enum {
 	TOKEN,
+	CLOSE,
 	INIT
 }msg_type;
 
