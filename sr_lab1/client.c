@@ -21,6 +21,11 @@ int logger_socket;
 struct sockaddr_in peer;
 int len;
 
+//times we tried to reconnect 
+//it is used when we lost connection to client who stoped working
+int reconnect=0;
+
+
 //initialize value of in_socket
 //bind it with my port 
 //start listeining on my port
@@ -85,9 +90,17 @@ void request_session(){
 	if(connect(out_socket, (SA*)&sending_addr, sizeof(sending_addr)) == -1){
 		printf("%d", neig_port);
 		perror("Connection failed:");
-		exit(-1);
+		sleep(2);
+		//dont exit on first try in case one client stopped and 
+		//i haven't recived close message yet
+		reconnect++;
+		if(reconnect>2){
+			//if close message is not coming for some time then exit
+			exit(-1);
+		}
 	}
 	else{
+		reconnect=0;
 		//printf("Connection succesfull\n");
 	}
 	
@@ -145,7 +158,10 @@ void send_msg(Token msg){
 	}
 
 	request_session();
-	write(out_socket, &msg, sizeof(msg));
+	if(reconnect==0){ //send this message if there is connection established
+		write(out_socket, &msg, sizeof(msg)); 
+	}
+	//reconnect=0; // if everything works good;
 	close(out_socket);
 }
 

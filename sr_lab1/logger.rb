@@ -6,7 +6,7 @@ ip =  IPAddr.new(MULTICAST_ADDR).hton + IPAddr.new("0.0.0.0").hton
 sock = UDPSocket.new
 sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, ip)
 sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1)
-sock.bind(Socket::INADDR_ANY, PORT)
+sock.bind(MULTICAST_ADDR, PORT)
 loop do
   msg, info = sock.recvfrom(256)
   res = msg.match(/\b\w+\b/)
