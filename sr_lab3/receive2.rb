@@ -24,23 +24,23 @@ ARGV.each do |severity|
 end
 
 puts ' [*] Waiting for logs. To exit press CTRL+C'
+while true
+  begin
+    #sleep 10
+    queues.each do |q|
+      q.subscribe(block: false) do |delivery_info, properties, body|
+      puts " Got test order from #{delivery_info.routing_key}: #{body}"
+      message = "#{body} done"
+      puts "working..."
+      sleep 3
+      exchange.publish(message, routing_key: "result.#{properties.reply_to}", correlation_id:  generate_uuid)
+      puts " [x] Sent #{delivery_info.routing_key}:#{message}"
+    end
+  end 
+  rescue Interrupt => _
+    channel.close
+    connection.close
 
-begin
-  #sleep 10
-  queues.each do |q|
-    q.subscribe(block: true) do |delivery_info, properties, body|
-    puts " [x] #{delivery_info.routing_key}:#{body}"
-    message = "done"
-    puts "#{properties.reply_to}"
-    #sleep 3
-    #channel.acknowledge(delivery_info.delivery_tag, true)
-    exchange.publish(message, routing_key: "result.#{properties.reply_to}", correlation_id:  generate_uuid)
-    puts " [x] Sent #{delivery_info.routing_key}:#{message}"
+    exit(0)
   end
-end 
-rescue Interrupt => _
-  channel.close
-  connection.close
-
-  exit(0)
 end

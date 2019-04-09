@@ -16,21 +16,13 @@ exchange = channel.topic('topic_logs')
 message = "AAAA"#ARGV.empty? ? '' : ARGV.join(' ')""
 
 name = ARGV[0]
-severity = ARGV[1]
 
 queue = channel.queue(name)
 
 queue.bind(exchange, routing_key: "result.#{name}.\#")
-for i in 1..10
-	exchange.publish(message + " #{i}", 
-		routing_key: "#{name}.#{severity}",
-		reply_to: name,
-		correlation_id: generate_uuid)
-end
-puts " [x] Sent #{severity}:#{message}"
 
 begin
-  queue.subscribe(block: true) do |delivery_info, _properties, body|
+  queue.subscribe(block: false) do |delivery_info, _properties, body|
     puts " [x] #{delivery_info.routing_key}:#{body}"
   end
 rescue Interrupt => _
@@ -38,6 +30,19 @@ rescue Interrupt => _
   connection.close
 
   exit(0)
+end
+
+if ARGV.length > 1  
+	severity = ARGV[1]
+	patient = ARGV[2]
+
+
+	message = "#{patient} - #{severity}"
+	exchange.publish(message,
+		routing_key: "#{name}.#{severity}",
+		reply_to: name,
+		correlation_id: generate_uuid)
+	puts " [x] Sent #{name}:#{message}"
 end
 
 connection.close
