@@ -23,18 +23,18 @@ ARGV.each do |severity|
   queues.push(queue)
 end
 
-puts ' [*] Waiting for logs. To exit press CTRL+C'
+puts 'Waiting for examination orders. To exit press CTRL+C'
 while true
   begin
     #sleep 10
     queues.each do |q|
       q.subscribe(block: false) do |delivery_info, properties, body|
-      puts " Got test order from #{delivery_info.routing_key}: #{body}"
+      puts "Got test order from #{delivery_info.routing_key}: #{body}"
       message = "#{body} done"
-      puts "working..."
+      puts "Working on examination..."
       sleep 3
       exchange.publish(message, routing_key: "result.#{properties.reply_to}", correlation_id:  generate_uuid)
-      puts " [x] Sent #{delivery_info.routing_key}:#{message}"
+      puts "Sent #{delivery_info.routing_key}:#{message}"
     end
   end 
   rescue Interrupt => _

@@ -13,7 +13,7 @@ recv = ARGV[0]
 info = ARGV[1]
 
 channel = connection.create_channel
-channel.prefetch(10)
+#channel.prefetch(10)
 exchange = channel.topic('topic_logs')
 
 queues = []

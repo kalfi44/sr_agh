@@ -10,10 +10,10 @@ connection = Bunny.new
 connection.start
 
 channel = connection.create_channel
-channel.prefetch(10)
+#channel.prefetch(10)
 exchange = channel.topic('topic_logs')
 #severity = ARGV.shift || 'anonymous.info'
-message = "AAAA"#ARGV.empty? ? '' : ARGV.join(' ')""
+message = ""#ARGV.empty? ? '' : ARGV.join(' ')""
 
 name = ARGV[0]
 
@@ -23,7 +23,7 @@ queue.bind(exchange, routing_key: "result.#{name}.\#")
 
 begin
   queue.subscribe(block: false) do |delivery_info, _properties, body|
-    puts " [x] #{delivery_info.routing_key}:#{body}"
+    puts "Got examination results: #{delivery_info.routing_key}:#{body}"
   end
 rescue Interrupt => _
   channel.close
@@ -42,7 +42,7 @@ if ARGV.length > 1
 		routing_key: "#{name}.#{severity}",
 		reply_to: name,
 		correlation_id: generate_uuid)
-	puts " [x] Sent #{name}:#{message}"
+	puts "Sent examination order: #{name}:#{message}"
 end
 
 connection.close
