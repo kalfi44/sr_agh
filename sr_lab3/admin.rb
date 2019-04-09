@@ -28,17 +28,14 @@ q3 = channel.queue("elbow_techs")
 
 puts ' [*] Waiting for logs. To exit press CTRL+C'
 
-while true
-  begin
-    #sleep 10
+begin
       queue.subscribe(block: true, manual_ack: false) do |delivery_info, properties, body|
       puts " [x] #{delivery_info.routing_key}:#{body}"
       #channel.acknowledge(delivery_info.delivery_tag, true)
-  end 
-  rescue Interrupt => _
+      end 
+rescue Interrupt => _
     channel.close
     connection.close
 
     exit(0)
-  end
 end
